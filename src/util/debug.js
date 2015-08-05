@@ -1,17 +1,12 @@
-var config = require('../config')
-
 /**
- * Enable debug utilities. The enableDebug() function and
- * all _.log() & _.warn() calls will be dropped in the
- * minified production build.
+ * Enable debug utilities.
  */
 
-enableDebug()
+if (process.env.NODE_ENV !== 'production') {
 
-function enableDebug () {
-
+  var config = require('../config')
   var hasConsole = typeof console !== 'undefined'
-  
+
   /**
    * Log a message.
    *
@@ -35,7 +30,6 @@ function enableDebug () {
       console.warn('[Vue warn]: ' + msg)
       /* istanbul ignore if */
       if (config.debug) {
-        /* jshint debug: true */
         console.warn((e || new Error('Warning Stack Trace')).stack)
       }
     }
@@ -48,17 +42,17 @@ function enableDebug () {
   exports.assertAsset = function (val, type, id) {
     /* istanbul ignore if */
     if (type === 'directive') {
-      if (id === 'component') {
+      if (id === 'with') {
         exports.warn(
-          'v-component has been deprecated in 0.12. ' +
-          'Use custom element syntax instead.'
+          'v-with has been deprecated in ^0.12.0. ' +
+          'Use props instead.'
         )
         return
       }
-      if (id === 'with') {
+      if (id === 'events') {
         exports.warn(
-          'v-with has been deprecated in 0.12. ' +
-          'Use props instead.'
+          'v-events has been deprecated in ^0.12.0. ' +
+          'Pass down methods as callback props instead.'
         )
         return
       }

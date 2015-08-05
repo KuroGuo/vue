@@ -1,6 +1,6 @@
 var _ = require('./util')
 var config = require('./config')
-var Observer = require('./observer')
+var Dep = require('./observer/dep')
 var expParser = require('./parsers/expression')
 var batcher = require('./batcher')
 var uid = 0
@@ -18,14 +18,16 @@ var uid = 0
  *                 - {Boolean} twoWay
  *                 - {Boolean} deep
  *                 - {Boolean} user
+ *                 - {Boolean} lazy
  *                 - {Function} [preProcess]
  * @constructor
  */
 
-function Watcher (vm, expression, cb, options) {
+function Watcher (vm, expOrFn, cb, options) {
+  var isFn = typeof expOrFn === 'function'
   this.vm = vm
   vm._watchers.push(this)
-  this.expression = expression
+  this.expression = isFn ? expOrFn.toString() : expOrFn
   this.cb = cb
   this.id = ++uid // uid for batching
   this.active = true
@@ -33,15 +35,27 @@ function Watcher (vm, expression, cb, options) {
   this.deep = !!options.deep
   this.user = !!options.user
   this.twoWay = !!options.twoWay
+  this.lazy = !!options.lazy
+  this.dirty = this.lazy
   this.filters = options.filters
   this.preProcess = options.preProcess
   this.deps = []
-  this.newDeps = []
+  this.newDeps = null
   // parse expression for getter/setter
-  var res = expParser.parse(expression, options.twoWay)
-  this.getter = res.get
-  this.setter = res.set
-  this.value = this.get()
+  if (isFn) {
+    this.getter = expOrFn
+    this.setter = undefined
+  } else {
+    var res = expParser.parse(expOrFn, options.twoWay)
+    this.getter = res.get
+    this.setter = res.set
+  }
+  this.value = this.lazy
+    ? undefined
+    : this.get()
+  // state for avoiding false triggers for deep and Array
+  // watchers during vm._digest()
+  this.queued = this.shallow = false
 }
 
 var p = Watcher.prototype
@@ -77,10 +91,17 @@ p.get = function () {
   try {
     value = this.getter.call(vm, vm)
   } catch (e) {
-    if (config.warnExpressionErrors) {
+    if (
+      process.env.NODE_ENV !== 'production' &&
+      config.warnExpressionErrors
+    ) {
       _.warn(
         'Error when evaluating expression "' +
-        this.expression + '"', e
+        this.expression + '". ' +
+        (config.debug
+          ? '' :
+          'Turn on debug mode to see stack trace.'
+        ), e
       )
     }
   }
@@ -114,7 +135,10 @@ p.set = function (value) {
   try {
     this.setter.call(vm, vm, value)
   } catch (e) {
-    if (config.warnExpressionErrors) {
+    if (
+      process.env.NODE_ENV !== 'production' &&
+      config.warnExpressionErrors
+    ) {
       _.warn(
         'Error when evaluating setter "' +
         this.expression + '"', e
@@ -128,7 +152,8 @@ p.set = function (value) {
  */
 
 p.beforeGet = function () {
-  Observer.target = this
+  Dep.target = this
+  this.newDeps = []
 }
 
 /**
@@ -136,7 +161,7 @@ p.beforeGet = function () {
  */
 
 p.afterGet = function () {
-  Observer.target = null
+  Dep.target = null
   var i = this.deps.length
   while (i--) {
     var dep = this.deps[i]
@@ -145,18 +170,30 @@ p.afterGet = function () {
     }
   }
   this.deps = this.newDeps
-  this.newDeps = []
+  this.newDeps = null
 }
 
 /**
  * Subscriber interface.
  * Will be called when a dependency changes.
+ *
+ * @param {Boolean} shallow
  */
 
-p.update = function () {
-  if (!config.async || config.debug) {
+p.update = function (shallow) {
+  if (this.lazy) {
+    this.dirty = true
+  } else if (!config.async) {
     this.run()
   } else {
+    // if queued, only overwrite shallow with non-shallow,
+    // but not the other way around.
+    this.shallow = this.queued
+      ? shallow
+        ? this.shallow
+        : false
+      : !!shallow
+    this.queued = true
     batcher.push(this)
   }
 }
@@ -171,13 +208,42 @@ p.run = function () {
     var value = this.get()
     if (
       value !== this.value ||
-      Array.isArray(value) ||
-      this.deep
+      // Deep watchers and Array watchers should fire even
+      // when the value is the same, because the value may
+      // have mutated; but only do so if this is a
+      // non-shallow update (caused by a vm digest).
+      ((_.isArray(value) || this.deep) && !this.shallow)
     ) {
       var oldValue = this.value
       this.value = value
       this.cb(value, oldValue)
     }
+    this.queued = this.shallow = false
+  }
+}
+
+/**
+ * Evaluate the value of the watcher.
+ * This only gets called for lazy watchers.
+ */
+
+p.evaluate = function () {
+  // avoid overwriting another watcher that is being
+  // collected.
+  var current = Dep.target
+  this.value = this.get()
+  this.dirty = false
+  Dep.target = current
+}
+
+/**
+ * Depend on all deps collected by this watcher.
+ */
+
+p.depend = function () {
+  var i = this.deps.length
+  while (i--) {
+    this.deps[i].depend()
   }
 }
 
@@ -201,7 +267,6 @@ p.teardown = function () {
     this.vm = this.cb = this.value = null
   }
 }
-
 
 /**
  * Recrusively traverse an object to evoke all converted

@@ -24,7 +24,7 @@ var testCases = [
     expected: [
       { tag: true, value: 'text', html: false, oneTime: false },
       { value: ' and ' },
-      { tag: true, value: 'html', html: true, oneTime: false },
+      { tag: true, value: 'html', html: true, oneTime: false }
     ]
   },
   {
@@ -33,7 +33,7 @@ var testCases = [
     expected: [
       { tag: true, value: 'text', html: false, oneTime: true },
       { value: ' and ' },
-      { tag: true, value: 'html', html: true, oneTime: true },
+      { tag: true, value: 'html', html: true, oneTime: true }
     ]
   },
   {
@@ -42,6 +42,13 @@ var testCases = [
       { value: '[' },
       { tag: true, value: 'abc', html: false, oneTime: false },
       { value: ']' }
+    ]
+  },
+  // multiline
+  {
+    text: '{{\n  value  \n}}',
+    expected: [
+      { tag: true, value: 'value', html: false, oneTime: false }
     ]
   }
 ]
@@ -81,7 +88,7 @@ describe('Text Parser', function () {
       expected: [
         { tag: true, value: 'text', html: false, oneTime: true },
         { value: ' and ' },
-        { tag: true, value: 'html', html: true, oneTime: false },
+        { tag: true, value: 'html', html: true, oneTime: false }
       ]
     })
     config.delimiters = ['{{', '}}']

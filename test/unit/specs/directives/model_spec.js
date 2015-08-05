@@ -21,13 +21,14 @@ function trigger (target, event, process) {
  */
 
 function updateSelect (el, value) {
-  /* jshint eqeqeq: false */
   var options = el.options
   var i = options.length
   while (i--) {
+    /* eslint-disable eqeqeq */
     if (options[i].value == value) {
-        options[i].selected = true
-        break
+    /* eslint-enable eqeqeq */
+      options[i].selected = true
+      break
     }
   }
 }
@@ -139,7 +140,29 @@ if (_.inBrowser) {
       })
     })
 
-    it('select default value', function () {
+    it('select persist non-selected on append', function () {
+      var vm = new Vue({
+        el: el,
+        data: {
+          test: null
+        },
+        replace: true,
+        template:
+          '<select v-model="test">' +
+            '<option>a</option>' +
+            '<option>b</option>' +
+            '<option>c</option>' +
+          '</select>'
+      })
+      expect(vm.$el.value).toBe('')
+      expect(vm.$el.selectedIndex).toBe(-1)
+      vm.$remove()
+      vm.$appendTo(document.body)
+      expect(vm.$el.value).toBe('')
+      expect(vm.$el.selectedIndex).toBe(-1)
+    })
+
+    it('select template default value', function () {
       var vm = new Vue({
         el: el,
         data: {
@@ -240,7 +263,7 @@ if (_.inBrowser) {
     })
 
     it('select + options + text', function () {
-      var vm = new Vue({
+      new Vue({
         el: el,
         data: {
           test: 'b',
@@ -265,12 +288,12 @@ if (_.inBrowser) {
     })
 
     it('select + options + optgroup', function () {
-      var vm = new Vue({
+      new Vue({
         el: el,
         data: {
           test: 'b',
           opts: [
-            { label: 'A', options: ['a','b'] },
+            { label: 'A', options: ['a', 'b'] },
             { label: 'B', options: ['c'] }
           ]
         },
@@ -331,14 +354,14 @@ if (_.inBrowser) {
     })
 
     it('select + options + filter', function () {
-      var vm = new Vue({
+      new Vue({
         el: el,
         data: {
-          opts: ['a','b']
+          opts: ['a', 'b']
         },
         filters: {
-          aFilter: function (opts){
-            return opts.map(function (val,i){
+          aFilter: function (opts) {
+            return opts.map(function (val, i) {
               return val + i
             })
           }
@@ -346,9 +369,37 @@ if (_.inBrowser) {
         template: '<select v-model="test" options="opts | aFilter"></select>'
       })
       expect(el.firstChild.innerHTML).toBe(
-          '<option value="a0">a0</option>' +
-          '<option value="b1">b1</option>'
+        '<option value="a0">a0</option>' +
+        '<option value="b1">b1</option>'
       )
+    })
+
+    it('select + options + static option', function (done) {
+      var vm = new Vue({
+        el: el,
+        data: {
+          opts: ['a', 'b']
+        },
+        template:
+          '<select v-model="test" options="opts">' +
+            '<option value="">default...</option>' +
+          '</select>'
+      })
+      expect(el.firstChild.innerHTML).toBe(
+        '<option value="">default...</option>' +
+        '<option value="a">a</option>' +
+        '<option value="b">b</option>'
+      )
+      expect(el.firstChild.options[0].selected).toBe(true)
+      vm.opts = ['c']
+      _.nextTick(function () {
+        expect(el.firstChild.innerHTML).toBe(
+          '<option value="">default...</option>' +
+          '<option value="c">c</option>'
+        )
+        expect(el.firstChild.options[0].selected).toBe(true)
+        done()
+      })
     })
 
     it('text', function (done) {
@@ -559,7 +610,7 @@ if (_.inBrowser) {
     })
 
     it('warn invalid tag', function () {
-      var vm = new Vue({
+      new Vue({
         el: el,
         template: '<div v-model="test"></div>'
       })
@@ -567,7 +618,7 @@ if (_.inBrowser) {
     })
 
     it('warn invalid option value', function () {
-      var vm = new Vue({
+      new Vue({
         el: el,
         data: { a: 123 },
         template: '<select v-model="test" options="a"></select>'
@@ -576,7 +627,7 @@ if (_.inBrowser) {
     })
 
     it('warn read-only filters', function () {
-      var vm = new Vue({
+      new Vue({
         el: el,
         template: '<input v-model="abc | test">',
         filters: {

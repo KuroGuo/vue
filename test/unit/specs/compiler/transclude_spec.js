@@ -1,4 +1,5 @@
-var transclude = require('../../../../src/compiler/transclude')
+var transclude = require('../../../../src/compiler').transclude
+var Vue = require('../../../../src/vue')
 var _ = require('../../../../src/util')
 
 if (_.inBrowser) {
@@ -7,7 +8,7 @@ if (_.inBrowser) {
     var el, options
     beforeEach(function () {
       el = document.createElement('div')
-      options = {}
+      options = _.extend({}, Vue.options)
       spyOn(_, 'warn')
     })
 
@@ -41,7 +42,49 @@ if (_.inBrowser) {
       expect(res.innerHTML).toBe('{{hi}}')
     })
 
-    it('block instance', function () {
+    it('template replace -> fragment instance', function () {
+      var res
+      options.replace = true
+
+      // multiple root
+      options.template = '<div></div><div></div>'
+      res = transclude(el, options)
+      expect(res instanceof DocumentFragment).toBe(true)
+
+      // non-element
+      options.template = '{{hi}}'
+      res = transclude(el, options)
+      expect(res instanceof DocumentFragment).toBe(true)
+
+      // single component: <component>
+      options.template = '<component is="{{hi}}"></component>'
+      res = transclude(el, options)
+      expect(res instanceof DocumentFragment).toBe(true)
+
+      // single component: custom element
+      options.template = '<test></test>'
+      options.components = { test: {}}
+      res = transclude(el, options)
+      expect(res instanceof DocumentFragment).toBe(true)
+
+      // single component: v-component
+      options.template = '<div v-component="test"></div>'
+      res = transclude(el, options)
+      expect(res instanceof DocumentFragment).toBe(true)
+
+      // element directive
+      options.template = '<el-dir></el-dir>'
+      options.elementDirectives = { 'el-dir': {}}
+      res = transclude(el, options)
+      expect(res instanceof DocumentFragment).toBe(true)
+
+      // v-repeat
+      options.template = '<div v-repeat="list"></div>'
+      res = transclude(el, options)
+      expect(res instanceof DocumentFragment).toBe(true)
+    })
+
+    it('direct fragment instance', function () {
       var frag = document.createDocumentFragment()
       frag.appendChild(el)
       var res = transclude(frag, options)
@@ -63,62 +106,6 @@ if (_.inBrowser) {
       expect(res.childNodes[2].nodeType).toBe(3)
     })
 
-    it('content transclusion', function () {
-      el.innerHTML = '<p>hi</p>'
-      options.template = '<div><content></content></div>'
-      var res = transclude(el, options)
-      expect(res.firstChild.tagName).toBe('DIV')
-      expect(res.firstChild.firstChild.tagName).toBe('P')
-      expect(res.firstChild.firstChild.textContent).toBe('hi')
-    })
-
-    it('fallback content', function () {
-      options.template = '<content><p>fallback</p></content>'
-      var res = transclude(el, options)
-      expect(res.firstChild.tagName).toBe('P')
-      expect(res.firstChild.textContent).toBe('fallback')
-    })
-
-    it('fallback content with multiple select', function () {
-      el.innerHTML = '<p class="b">select b</p>'
-      options.template = '<content select=".a"><p>fallback a</p></content><content select=".b">fallback b</content>'
-      var res = transclude(el, options)
-      expect(res.childNodes.length).toBe(2)
-      expect(res.firstChild.textContent).toBe('fallback a')
-      expect(res.lastChild.textContent).toBe('select b')
-    })
-
-    it('content transclusion with replace', function () {
-      el.innerHTML = '<p>hi</p>'
-      options.template = '<div><div><content></content></div></div>'
-      options.replace = true
-      var res = transclude(el, options)
-      expect(res).not.toBe(el)
-      expect(res.firstChild.tagName).toBe('DIV')
-      expect(res.firstChild.firstChild.tagName).toBe('P')
-      expect(res.firstChild.firstChild.textContent).toBe('hi')
-    })
-
-    it('block instance content transclusion', function () {
-      el.innerHTML = '<p>hi</p><span>ho</span>'
-      options.template = '<div></div><content select="p"></content><content select="span"></content>'
-      options.replace = true
-      var res = transclude(el, options)
-      expect(res.childNodes[1].tagName).toBe('DIV')
-      expect(res.childNodes[2].tagName).toBe('P')
-      expect(res.childNodes[3].tagName).toBe('SPAN')
-    })
-
-    it('select should only match children', function () {
-      el.innerHTML = '<p class="b">select b</p><span><p class="b">nested b</p></span><span><p class="c">nested c</p></span>'
-      options.template = '<content select=".a"><p>fallback a</p></content><content select=".b">fallback b</content><content select=".c">fallback c</content>'
-      var res = transclude(el, options)
-      expect(res.childNodes.length).toBe(3)
-      expect(res.firstChild.textContent).toBe('fallback a')
-      expect(res.childNodes[1].textContent).toBe('select b')
-      expect(res.lastChild.textContent).toBe('fallback c')
-    })
-
     it('replacer attr should overwrite container attr of same name, except class should be merged', function () {
       el.setAttribute('class', 'test')
       el.setAttribute('title', 'parent')
@@ -128,6 +115,16 @@ if (_.inBrowser) {
       var res = transclude(el, options)
       expect(res.getAttribute('class')).toBe('other test')
       expect(res.getAttribute('title')).toBe('child')
+    })
+
+    it('class merge for svg elements', function () {
+      el.setAttribute('class', 'test')
+      options.template = '<circle class="other"></circle>'
+      options.replace = true
+      options._asComponent = true
+      var res = transclude(el, options)
+      expect(res.namespaceURI).toBe('http://www.w3.org/2000/svg')
+      expect(res.getAttribute('class')).toBe('other test')
     })
 
   })

@@ -21,9 +21,10 @@ module.exports = {
 
   update: function (handler) {
     if (typeof handler !== 'function') {
-      _.warn(
-        'Directive "v-on:' + this.expression + '" ' +
-        'expects a function value.'
+      process.env.NODE_ENV !== 'production' && _.warn(
+        'Directive v-on="' + this.arg + ': ' +
+        this.expression + '" expects a function value, ' +
+        'got ' + handler
       )
       return
     }

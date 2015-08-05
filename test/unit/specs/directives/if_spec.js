@@ -24,20 +24,20 @@ if (_.inBrowser) {
       })
       // lazy instantitation
       expect(el.innerHTML).toBe('')
-      expect(vm._children.length).toBe(0)
+      expect(vm.$children.length).toBe(0)
       vm.test = true
       _.nextTick(function () {
         expect(el.innerHTML).toBe('<div><test>A</test></div>')
-        expect(vm._children.length).toBe(1)
+        expect(vm.$children.length).toBe(1)
         vm.test = false
         _.nextTick(function () {
           expect(el.innerHTML).toBe('')
-          expect(vm._children.length).toBe(0)
+          expect(vm.$children.length).toBe(0)
           vm.test = true
           _.nextTick(function () {
             expect(el.innerHTML).toBe('<div><test>A</test></div>')
-            expect(vm._children.length).toBe(1)
-            var child = vm._children[0]
+            expect(vm.$children.length).toBe(1)
+            var child = vm.$children[0]
             vm.$destroy()
             expect(child._isDestroyed).toBe(true)
             done()
@@ -87,18 +87,18 @@ if (_.inBrowser) {
       })
       vm.$appendTo(document.body)
       expect(el.innerHTML).toBe('')
-      expect(vm._children.length).toBe(0)
+      expect(vm.$children.length).toBe(0)
       vm.ok = true
       _.nextTick(function () {
         expect(el.innerHTML).toBe('<test>123</test>')
-        expect(vm._children.length).toBe(1)
+        expect(vm.$children.length).toBe(1)
         expect(attachSpy).toHaveBeenCalled()
         expect(readySpy).toHaveBeenCalled()
         vm.ok = false
         _.nextTick(function () {
           expect(detachSpy).toHaveBeenCalled()
           expect(el.innerHTML).toBe('')
-          expect(vm._children.length).toBe(0)
+          expect(vm.$children.length).toBe(0)
           vm.$remove()
           done()
         })
@@ -110,41 +110,41 @@ if (_.inBrowser) {
         el: el,
         data: {
           ok: false,
-          view: 'a'
+          view: 'view-a'
         },
         template: '<component is="{{view}}" v-if="ok"></component>',
         components: {
-          a: {
+          'view-a': {
             template: 'AAA'
           },
-          b: {
+          'view-b': {
             template: 'BBB'
           }
         }
       })
       expect(el.innerHTML).toBe('')
-      expect(vm._children.length).toBe(0)
+      expect(vm.$children.length).toBe(0)
       // toggle if with lazy instantiation
       vm.ok = true
       _.nextTick(function () {
         expect(el.innerHTML).toBe('<component>AAA</component>')
-        expect(vm._children.length).toBe(1)
+        expect(vm.$children.length).toBe(1)
         // switch view when if=true
-        vm.view = 'b'
+        vm.view = 'view-b'
         _.nextTick(function () {
           expect(el.innerHTML).toBe('<component>BBB</component>')
-          expect(vm._children.length).toBe(1)
+          expect(vm.$children.length).toBe(1)
           // toggle if when already instantiated
           vm.ok = false
           _.nextTick(function () {
             expect(el.innerHTML).toBe('')
-            expect(vm._children.length).toBe(0)
+            expect(vm.$children.length).toBe(0)
             // toggle if and switch view at the same time
-            vm.view = 'a'
+            vm.view = 'view-a'
             vm.ok = true
             _.nextTick(function () {
               expect(el.innerHTML).toBe('<component>AAA</component>')
-              expect(vm._children.length).toBe(1)
+              expect(vm.$children.length).toBe(1)
               done()
             })
           })
@@ -170,42 +170,10 @@ if (_.inBrowser) {
 
     it('invalid warn', function () {
       el.setAttribute('v-if', 'test')
-      var vm = new Vue({
+      new Vue({
         el: el
       })
-      expect(hasWarned(_, 'already mounted instance')).toBe(true)
-    })
-
-    it('v-if with content transclusion', function (done) {
-      var vm = new Vue({
-        el: el,
-        data: {
-          a: 1,
-          show: true
-        },
-        template: '<test show="{{show}}">{{a}}</test>',
-        components: {
-          test: {
-            props: ['show'],
-            template: '<div v-if="show"><content></cotent></div>'
-          }
-        }
-      })
-      expect(el.textContent).toBe('1')
-      vm.a = 2
-      _.nextTick(function () {
-        expect(el.textContent).toBe('2')
-        vm.show = false
-        _.nextTick(function () {
-          expect(el.textContent).toBe('')
-          vm.show = true
-          vm.a = 3
-          _.nextTick(function () {
-            expect(el.textContent).toBe('3')
-            done()
-          })
-        })
-      })
+      expect(hasWarned(_, 'cannot be used on an instance root element')).toBe(true)
     })
 
     it('call attach/detach for transcluded components', function (done) {
@@ -244,7 +212,7 @@ if (_.inBrowser) {
         el: el,
         data: {
           show: true,
-          list: [{a:0}]
+          list: [{a: 0}]
         },
         template:
           '<outer>' +
@@ -275,12 +243,12 @@ if (_.inBrowser) {
       _.nextTick(function () {
         assertMarkup()
         expect(detachSpy.calls.count()).toBe(1)
-        vm.list.push({a:1})
+        vm.list.push({a: 1})
         vm.show = true
         _.nextTick(function () {
           assertMarkup()
           expect(attachSpy.calls.count()).toBe(2 + 2)
-          vm.list.push({a:2})
+          vm.list.push({a: 2})
           vm.show = false
           _.nextTick(function () {
             assertMarkup()
@@ -307,6 +275,84 @@ if (_.inBrowser) {
           '</outer>'
         expect(el.innerHTML).toBe(markup)
       }
+    })
+
+    // #893 in IE textNodes do not have `contains` method
+    it('call attach/detach: comparing textNodes in IE', function (done) {
+      document.body.appendChild(el)
+      var attachSpy = jasmine.createSpy('attached')
+      var detachSpy = jasmine.createSpy('detached')
+      var vm = new Vue({
+        el: el,
+        data: {
+          show: true
+        },
+        template: '<template v-if="show"><test></test></template>',
+        components: {
+          test: {
+            template: 'hi',
+            replace: true,
+            attached: attachSpy,
+            detached: detachSpy
+          }
+        }
+      })
+      assertMarkup()
+      assertCalls(1, 0)
+      vm.show = false
+      _.nextTick(function () {
+        assertMarkup()
+        assertCalls(1, 1)
+        vm.show = true
+        _.nextTick(function () {
+          assertMarkup()
+          assertCalls(2, 1)
+          vm.show = false
+          _.nextTick(function () {
+            assertMarkup()
+            assertCalls(2, 2)
+            document.body.removeChild(el)
+            done()
+          })
+        })
+      })
+
+      function assertMarkup () {
+        expect(el.innerHTML).toBe(vm.show ? 'hi' : '')
+      }
+
+      function assertCalls (attach, detach) {
+        expect(attachSpy.calls.count()).toBe(attach)
+        expect(detachSpy.calls.count()).toBe(detach)
+      }
+    })
+
+    // #1097 v-if components not having correct parent
+    it('compile with correct transclusion host', function () {
+      var parentA
+      var parentB
+      new Vue({
+        el: el,
+        data: {
+          show: true
+        },
+        template: '<parent><child v-if="show"></child></parent>',
+        components: {
+          parent: {
+            template: '<content></content>',
+            created: function () {
+              parentA = this
+            }
+          },
+          child: {
+            created: function () {
+              parentB = this.$parent
+            }
+          }
+        }
+      })
+      expect(parentA).toBeTruthy()
+      expect(parentA).toBe(parentB)
     })
 
   })

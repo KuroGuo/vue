@@ -1,7 +1,6 @@
 var _ = require('../util')
 var config = require('../config')
 var templateParser = require('../parsers/template')
-var transcludedFlagAttr = '__vue__transcluded'
 
 /**
  * Process an element or a DocumentFragment based on a
@@ -15,7 +14,7 @@ var transcludedFlagAttr = '__vue__transcluded'
  * @return {Element|DocumentFragment}
  */
 
-module.exports = function transclude (el, options) {
+exports.transclude = function (el, options) {
   // extract container attributes to pass them down
   // to compiler, because they need to be compiled in
   // parent scope. we are mutating the options object here
@@ -24,36 +23,22 @@ module.exports = function transclude (el, options) {
   if (options) {
     options._containerAttrs = extractAttrs(el)
   }
-  // Mark content nodes and attrs so that the compiler
-  // knows they should be compiled in parent scope.
-  if (options && options._asComponent) {
-    var i = el.childNodes.length
-    while (i--) {
-      var node = el.childNodes[i]
-      if (node.nodeType === 1) {
-        node.setAttribute(transcludedFlagAttr, '')
-      } else if (node.nodeType === 3 && node.data.trim()) {
-        // wrap transcluded textNodes in spans, because
-        // raw textNodes can't be persisted through clones
-        // by attaching attributes.
-        var wrapper = document.createElement('span')
-        wrapper.textContent = node.data
-        wrapper.setAttribute('__vue__wrap', '')
-        wrapper.setAttribute(transcludedFlagAttr, '')
-        el.replaceChild(wrapper, node)
-      }
-    }
-  }
   // for template tags, what we want is its content as
-  // a documentFragment (for block instances)
-  if (el.tagName === 'TEMPLATE') {
+  // a documentFragment (for fragment instances)
+  if (_.isTemplate(el)) {
     el = templateParser.parse(el)
   }
-  if (options && options.template) {
-    el = transcludeTemplate(el, options)
+  if (options) {
+    if (options._asComponent && !options.template) {
+      options.template = '<content></content>'
+    }
+    if (options.template) {
+      options._content = _.extractContent(el)
+      el = transcludeTemplate(el, options)
+    }
   }
   if (el instanceof DocumentFragment) {
-    // anchors for block instance
+    // anchors for fragment instance
     // passing in `persist: true` to avoid them being
     // discarded by IE during template cloning
     _.prepend(_.createAnchor('v-start', true), el)
@@ -74,145 +59,63 @@ module.exports = function transclude (el, options) {
 function transcludeTemplate (el, options) {
   var template = options.template
   var frag = templateParser.parse(template, true)
-  if (!frag) {
-    _.warn('Invalid template option: ' + template)
-  } else {
-    var rawContent = options._content || _.extractContent(el)
+  if (frag) {
     var replacer = frag.firstChild
+    var tag = replacer.tagName && replacer.tagName.toLowerCase()
     if (options.replace) {
+      /* istanbul ignore if */
+      if (el === document.body) {
+        process.env.NODE_ENV !== 'production' && _.warn(
+          'You are mounting an instance with a template to ' +
+          '<body>. This will replace <body> entirely. You ' +
+          'should probably use `replace: false` here.'
+        )
+      }
+      // there are many cases where the instance must
+      // become a fragment instance: basically anything that
+      // can create more than 1 root nodes.
       if (
+        // multi-children template
         frag.childNodes.length > 1 ||
+        // non-element template
         replacer.nodeType !== 1 ||
-        // when root node has v-repeat, the instance ends up
-        // having multiple top-level nodes, thus becoming a
-        // block instance. (#835)
+        // single nested component
+        tag === 'component' ||
+        _.resolveAsset(options, 'components', tag) ||
+        replacer.hasAttribute(config.prefix + 'component') ||
+        // element directive
+        _.resolveAsset(options, 'elementDirectives', tag) ||
+        // repeat block
         replacer.hasAttribute(config.prefix + 'repeat')
       ) {
-        transcludeContent(frag, rawContent)
         return frag
       } else {
         options._replacerAttrs = extractAttrs(replacer)
         mergeAttrs(el, replacer)
-        transcludeContent(replacer, rawContent)
         return replacer
       }
     } else {
       el.appendChild(frag)
-      transcludeContent(el, rawContent)
       return el
     }
+  } else {
+    process.env.NODE_ENV !== 'production' && _.warn(
+      'Invalid template option: ' + template
+    )
   }
 }
 
 /**
- * Resolve <content> insertion points mimicking the behavior
- * of the Shadow DOM spec:
- *
- *   http://w3c.github.io/webcomponents/spec/shadow/#insertion-points
- *
- * @param {Element|DocumentFragment} el
- * @param {Element} raw
- */
-
-function transcludeContent (el, raw) {
-  var outlets = getOutlets(el)
-  var i = outlets.length
-  if (!i) return
-  var outlet, select, selected, j, main
-
-  function isDirectChild (node) {
-    return node.parentNode === raw
-  }
-
-  // first pass, collect corresponding content
-  // for each outlet.
-  while (i--) {
-    outlet = outlets[i]
-    if (raw) {
-      select = outlet.getAttribute('select')
-      if (select) {  // select content
-        selected = raw.querySelectorAll(select)
-        if (selected.length) {
-          // according to Shadow DOM spec, `select` can
-          // only select direct children of the host node.
-          // enforcing this also fixes #786.
-          selected = [].filter.call(selected, isDirectChild)
-        }
-        outlet.content = selected.length
-          ? selected
-          : _.toArray(outlet.childNodes)
-      } else { // default content
-        main = outlet
-      }
-    } else { // fallback content
-      outlet.content = _.toArray(outlet.childNodes)
-    }
-  }
-  // second pass, actually insert the contents
-  for (i = 0, j = outlets.length; i < j; i++) {
-    outlet = outlets[i]
-    if (outlet !== main) {
-      insertContentAt(outlet, outlet.content)
-    }
-  }
-  // finally insert the main content
-  if (main) {
-    insertContentAt(main, _.toArray(raw.childNodes))
-  }
-}
-
-/**
- * Get <content> outlets from the element/list
- *
- * @param {Element|Array} el
- * @return {Array}
- */
-
-var concat = [].concat
-function getOutlets (el) {
-  return _.isArray(el)
-    ? concat.apply([], el.map(getOutlets))
-    : el.querySelectorAll
-      ? _.toArray(el.querySelectorAll('content'))
-      : []
-}
-
-/**
- * Insert an array of nodes at outlet,
- * then remove the outlet.
- *
- * @param {Element} outlet
- * @param {Array} contents
- */
-
-function insertContentAt (outlet, contents) {
-  // not using util DOM methods here because
-  // parentNode can be cached
-  var parent = outlet.parentNode
-  for (var i = 0, j = contents.length; i < j; i++) {
-    parent.insertBefore(contents[i], outlet)
-  }
-  parent.removeChild(outlet)
-}
-
-/**
- * Helper to extract a component container's attribute names
- * into a map. The resulting map will be used in compiler to
- * determine whether an attribute is transcluded.
+ * Helper to extract a component container's attributes
+ * into a plain object array.
  *
  * @param {Element} el
- * @return {Object}
+ * @return {Array}
  */
 
 function extractAttrs (el) {
   if (el.nodeType === 1 && el.hasAttributes()) {
-    var attrs = el.attributes
-    var res = {}
-    var i = attrs.length
-    while (i--) {
-      res[attrs[i].name] = attrs[i].value
-    }
-    return res
+    return _.toArray(el.attributes)
   }
 }
 
@@ -234,7 +137,8 @@ function mergeAttrs (from, to) {
     if (!to.hasAttribute(name)) {
       to.setAttribute(name, value)
     } else if (name === 'class') {
-      to.className = to.className + ' ' + value
+      value = to.getAttribute(name) + ' ' + value
+      to.setAttribute(name, value)
     }
   }
 }

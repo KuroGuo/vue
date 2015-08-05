@@ -18,6 +18,13 @@ module.exports = {
   debug: false,
 
   /**
+   * Strict mode.
+   * Disables asset lookup in the view parent chain.
+   */
+
+  strict: false,
+
+  /**
    * Whether to suppress warnings.
    *
    * @type {Boolean}
@@ -71,11 +78,29 @@ module.exports = {
    */
 
   _assetTypes: [
+    'component',
     'directive',
     'elementDirective',
     'filter',
-    'transition'
-  ]
+    'transition',
+    'partial'
+  ],
+
+  /**
+   * prop binding modes
+   */
+
+  _propBindingModes: {
+    ONE_WAY: 0,
+    TWO_WAY: 1,
+    ONE_TIME: 2
+  },
+
+  /**
+   * Max circular updates allowed in a batcher flush cycle.
+   */
+
+  _maxUpdateCount: 100
 
 }
 

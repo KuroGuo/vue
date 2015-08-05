@@ -1,4 +1,5 @@
 var _ = require('../util')
+var config = require('../config')
 var templateParser = require('../parsers/template')
 
 module.exports = {
@@ -26,8 +27,10 @@ module.exports = {
       // we simply remove it from the DOM and save it in a
       // cache object, with its constructor id as the key.
       this.keepAlive = this._checkParam('keep-alive') != null
+      // wait for event before insertion
+      this.readyEvent = this._checkParam('wait-for')
       // check ref
-      this.refID = _.attr(this.el, 'ref')
+      this.refID = this._checkParam(config.prefix + 'ref')
       if (this.keepAlive) {
         this.cache = {}
       }
@@ -38,25 +41,37 @@ module.exports = {
       }
       // component resolution related state
       this._pendingCb =
-      this.ctorId =
-      this.Ctor = null
+      this.componentID =
+      this.Component = null
       // if static, build right now.
       if (!this._isDynamicLiteral) {
-        this.resolveCtor(this.expression, _.bind(function () {
-          var child = this.build()
-          child.$before(this.anchor)
-          this.setCurrent(child)
-        }, this))
+        this.resolveComponent(this.expression, _.bind(this.initStatic, this))
       } else {
         // check dynamic component params
-        this.readyEvent = this._checkParam('wait-for')
         this.transMode = this._checkParam('transition-mode')
       }
     } else {
-      _.warn(
-        'v-component="' + this.expression + '" cannot be ' +
-        'used on an already mounted instance.'
+      process.env.NODE_ENV !== 'production' && _.warn(
+        'cannot mount component "' + this.expression + '" ' +
+        'on already mounted element: ' + this.el
       )
+    }
+  },
+
+  /**
+   * Initialize a static component.
+   */
+
+  initStatic: function () {
+    var child = this.build()
+    var anchor = this.anchor
+    this.setCurrent(child)
+    if (!this.readyEvent) {
+      child.$before(anchor)
+    } else {
+      child.$once(this.readyEvent, function () {
+        child.$before(anchor)
+      })
     }
   },
 
@@ -66,38 +81,41 @@ module.exports = {
    */
 
   update: function (value) {
-    this.realUpdate(value)
+    this.setComponent(value)
   },
 
   /**
    * Switch dynamic components. May resolve the component
    * asynchronously, and perform transition based on
-   * specified transition mode. Accepts an async callback
-   * which is called when the transition ends. (This is
-   * exposed for vue-router)
+   * specified transition mode. Accepts a few additional
+   * arguments specifically for vue-router.
    *
    * @param {String} value
-   * @param {Function} [cb]
+   * @param {Object} data
+   * @param {Function} afterBuild
+   * @param {Function} afterTransition
    */
 
-  realUpdate: function (value, cb) {
+  setComponent: function (value, data, afterBuild, afterTransition) {
     this.invalidatePending()
     if (!value) {
       // just remove current
-      this.unbuild()
-      this.remove(this.childVM, cb)
+      this.unbuild(true)
+      this.remove(this.childVM, afterTransition)
       this.unsetCurrent()
     } else {
-      this.resolveCtor(value, _.bind(function () {
-        this.unbuild()
-        var newComponent = this.build()
+      this.resolveComponent(value, _.bind(function () {
+        this.unbuild(true)
+        var newComponent = this.build(data)
+        /* istanbul ignore if */
+        if (afterBuild) afterBuild(newComponent)
         var self = this
         if (this.readyEvent) {
           newComponent.$once(this.readyEvent, function () {
-            self.swapTo(newComponent, cb)
+            self.transition(newComponent, afterTransition)
           })
         } else {
-          this.swapTo(newComponent, cb)
+          this.transition(newComponent, afterTransition)
         }
       }, this))
     }
@@ -108,11 +126,11 @@ module.exports = {
    * the child vm.
    */
 
-  resolveCtor: function (id, cb) {
+  resolveComponent: function (id, cb) {
     var self = this
-    this._pendingCb = _.cancellable(function (ctor) {
-      self.ctorId = id
-      self.Ctor = ctor
+    this._pendingCb = _.cancellable(function (component) {
+      self.componentID = id
+      self.Component = component
       cb()
     })
     this.vm._resolveComponent(id, this._pendingCb)
@@ -136,27 +154,33 @@ module.exports = {
    * If keep alive and has cached instance, insert that
    * instance; otherwise build a new one and cache it.
    *
+   * @param {Object} [data]
    * @return {Vue} - the created instance
    */
 
-  build: function () {
+  build: function (data) {
     if (this.keepAlive) {
-      var cached = this.cache[this.ctorId]
+      var cached = this.cache[this.componentID]
       if (cached) {
         return cached
       }
     }
-    var vm = this.vm
-    var el = templateParser.clone(this.el)
-    if (this.Ctor) {
-      var child = vm.$addChild({
+    if (this.Component) {
+      var parent = this._host || this.vm
+      var el = templateParser.clone(this.el)
+      var child = parent.$addChild({
         el: el,
+        data: data,
         template: this.template,
+        // if no inline-template, then the compiled
+        // linker can be cached for better performance.
+        _linkerCachable: !this.template,
         _asComponent: true,
-        _host: this._host
-      }, this.Ctor)
+        _isRouterView: this._isRouterView,
+        _context: this.vm
+      }, this.Component)
       if (this.keepAlive) {
-        this.cache[this.ctorId] = child
+        this.cache[this.componentID] = child
       }
       return child
     }
@@ -165,9 +189,11 @@ module.exports = {
   /**
    * Teardown the current child, but defers cleanup so
    * that we can separate the destroy and removal steps.
+   *
+   * @param {Boolean} defer
    */
 
-  unbuild: function () {
+  unbuild: function (defer) {
     var child = this.childVM
     if (!child || this.keepAlive) {
       return
@@ -175,7 +201,7 @@ module.exports = {
     // the sole purpose of `deferCleanup` is so that we can
     // "deactivate" the vm right now and perform DOM removal
     // later.
-    child.$destroy(false, true)
+    child.$destroy(false, defer)
   },
 
   /**
@@ -205,7 +231,7 @@ module.exports = {
    * @param {Function} [cb]
    */
 
-  swapTo: function (target, cb) {
+  transition: function (target, cb) {
     var self = this
     var current = this.childVM
     this.unsetCurrent()
@@ -218,7 +244,9 @@ module.exports = {
         break
       case 'out-in':
         self.remove(current, function () {
-          target.$before(self.anchor, cb)
+          if (!target._isDestroyed) {
+            target.$before(self.anchor, cb)
+          }
         })
         break
       default:
@@ -230,7 +258,7 @@ module.exports = {
   /**
    * Set childVM and parent ref
    */
-  
+
   setCurrent: function (child) {
     this.childVM = child
     var refID = child._refID || this.refID
@@ -258,7 +286,9 @@ module.exports = {
 
   unbind: function () {
     this.invalidatePending()
+    // Do not defer cleanup when unbinding
     this.unbuild()
+    this.unsetCurrent()
     // destroy all keep-alive cached instances
     if (this.cache) {
       for (var key in this.cache) {
@@ -267,5 +297,4 @@ module.exports = {
       this.cache = null
     }
   }
-
 }

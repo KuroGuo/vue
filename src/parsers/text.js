@@ -65,14 +65,16 @@ exports.parse = function (text) {
   if (hit) {
     return hit
   }
+  text = text.replace(/\n/g, '')
   if (!tagRE.test(text)) {
     return null
   }
   var tokens = []
   var lastIndex = tagRE.lastIndex = 0
-  var match, index, value, first, oneTime
-  /* jshint boss:true */
+  var match, index, value, first, oneTime, twoWay
+  /* eslint-disable no-cond-assign */
   while (match = tagRE.exec(text)) {
+  /* eslint-enable no-cond-assign */
     index = match.index
     // push text token
     if (index > lastIndex) {
@@ -82,15 +84,17 @@ exports.parse = function (text) {
     }
     // tag token
     first = match[1].charCodeAt(0)
-    oneTime = first === 0x2A // *
-    value = oneTime
+    oneTime = first === 42 // *
+    twoWay = first === 64  // @
+    value = oneTime || twoWay
       ? match[1].slice(1)
       : match[1]
     tokens.push({
       tag: true,
       value: value.trim(),
       html: htmlRE.test(match[0]),
-      oneTime: oneTime
+      oneTime: oneTime,
+      twoWay: twoWay
     })
     lastIndex = index + match[0].length
   }

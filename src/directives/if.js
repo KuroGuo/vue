@@ -1,7 +1,9 @@
 var _ = require('../util')
-var compile = require('../compiler/compile')
+var compiler = require('../compiler')
 var templateParser = require('../parsers/template')
 var transition = require('../transition')
+var Cache = require('../cache')
+var cache = new Cache(1000)
 
 module.exports = {
 
@@ -12,24 +14,30 @@ module.exports = {
       this.end = _.createAnchor('v-if-end')
       _.replace(el, this.end)
       _.before(this.start, this.end)
-      if (el.tagName === 'TEMPLATE') {
+      if (_.isTemplate(el)) {
         this.template = templateParser.parse(el, true)
       } else {
         this.template = document.createDocumentFragment()
         this.template.appendChild(templateParser.clone(el))
       }
       // compile the nested partial
-      this.linker = compile(
-        this.template,
-        this.vm.$options,
-        true
-      )
+      var cacheId = (this.vm.constructor.cid || '') + el.outerHTML
+      this.linker = cache.get(cacheId)
+      if (!this.linker) {
+        this.linker = compiler.compile(
+          this.template,
+          this.vm.$options,
+          true, // partial
+          this._host // important
+        )
+        cache.put(cacheId, this.linker)
+      }
     } else {
-      this.invalid = true
-      _.warn(
+      process.env.NODE_ENV !== 'production' && _.warn(
         'v-if="' + this.expression + '" cannot be ' +
-        'used on an already mounted instance.'
+        'used on an instance root element.'
       )
+      this.invalid = true
     }
   },
 
@@ -39,19 +47,19 @@ module.exports = {
       // avoid duplicate compiles, since update() can be
       // called with different truthy values
       if (!this.unlink) {
-        this.compile()
+        this.link(
+          templateParser.clone(this.template),
+          this.linker
+        )
       }
     } else {
       this.teardown()
     }
   },
 
-  compile: function () {
+  link: function (frag, linker) {
     var vm = this.vm
-    var frag = templateParser.clone(this.template)
-    // the linker is not guaranteed to be present because
-    // this function might get called by v-partial 
-    this.unlink = this.linker(vm, frag)
+    this.unlink = linker(vm, frag)
     transition.blockAppend(frag, this.end, vm)
     // call attached for all the child components created
     // during the compilation
@@ -78,19 +86,16 @@ module.exports = {
     var vm = this.vm
     var start = this.start.nextSibling
     var end = this.end
-    var selfCompoents =
-      vm._children.length &&
-      vm._children.filter(contains)
-    var transComponents =
-      vm._transCpnts &&
-      vm._transCpnts.filter(contains)
 
     function contains (c) {
       var cur = start
       var next
       while (next !== end) {
         next = cur.nextSibling
-        if (cur.contains && cur.contains(c.$el)) {
+        if (
+          cur === c.$el ||
+          cur.contains && cur.contains(c.$el)
+        ) {
           return true
         }
         cur = next
@@ -98,11 +103,8 @@ module.exports = {
       return false
     }
 
-    return selfCompoents
-      ? transComponents
-        ? selfCompoents.concat(transComponents)
-        : selfCompoents
-      : transComponents
+    return vm.$children.length &&
+      vm.$children.filter(contains)
   },
 
   unbind: function () {

@@ -1,10 +1,10 @@
 var Vue = require('../../../../src/vue')
 var _ = require('../../../../src/util')
-var compile = require('../../../../src/compiler/compile')
+var compiler = require('../../../../src/compiler')
 
 if (_.inBrowser) {
   describe('Lifecycle API', function () {
-    
+
     describe('$mount', function () {
 
       var el, frag
@@ -76,9 +76,9 @@ if (_.inBrowser) {
         expect(vm.$el.className).toBe('replace-test')
         document.body.removeChild(vm.$el)
       })
-      
+
       it('precompiled linker', function () {
-        var linker = compile(el, Vue.options)
+        var linker = compiler.compile(el, Vue.options)
         var vm = new Vue({
           _linker: linker,
           data: {
@@ -112,7 +112,7 @@ if (_.inBrowser) {
         expect(vm.$el.nextSibling.textContent).toBe('hi!')
         expect(vm.$el.nextSibling.nextSibling.textContent).toBe('hi!!')
         expect(document.body.contains(el)).toBe(false)
-        expect(document.body.lastChild).toBe(vm._blockEnd)
+        expect(document.body.lastChild).toBe(vm._fragmentEnd)
         vm.$remove()
       })
 
@@ -164,11 +164,11 @@ if (_.inBrowser) {
         expect(vm.$el).toBeNull()
         expect(vm.$parent).toBeNull()
         expect(vm.$root).toBeNull()
-        expect(vm._children).toBeNull()
+        expect(vm.$children).toBeNull()
         expect(vm._directives).toBeNull()
         expect(Object.keys(vm._events).length).toBe(0)
       })
-      
+
       it('remove element', function () {
         var el = document.createElement('div')
         var parent = document.createElement('div')
@@ -198,11 +198,11 @@ if (_.inBrowser) {
         var parent = new Vue()
         var child = parent.$addChild()
         var child2 = parent.$addChild()
-        expect(parent._children.length).toBe(2)
+        expect(parent.$children.length).toBe(2)
         child.$destroy()
-        expect(parent._children.length).toBe(1)
+        expect(parent.$children.length).toBe(1)
         child2.$destroy()
-        expect(parent._children.length).toBe(0)
+        expect(parent.$children.length).toBe(0)
       })
 
       it('children', function () {

@@ -1,6 +1,6 @@
 <p align="center"><a href="http://vuejs.org" target="_blank"><img width="100"src="http://vuejs.org/images/logo.png"></a></p>
 
-# Vue.js [![Build Status](https://travis-ci.org/yyx990803/vue.svg?branch=master)](https://travis-ci.org/yyx990803/vue) [![Selenium Test Status](https://saucelabs.com/buildstatus/vuejs)](https://saucelabs.com/u/vuejs) [![Coverage Status](https://img.shields.io/coveralls/yyx990803/vue.svg)](https://coveralls.io/r/yyx990803/vue?branch=master)
+# Vue.js [![Build Status](https://img.shields.io/circleci/project/yyx990803/vue/master.svg)](https://circleci.com/gh/yyx990803/vue) [![Coverage Status](https://img.shields.io/codecov/c/github/yyx990803/vue/master.svg)](https://codecov.io/github/yyx990803/vue?branch=master) [![Selenium Test Status](https://saucelabs.com/buildstatus/vuejs)](https://saucelabs.com/u/vuejs)
 
 ## Intro
 
@@ -10,7 +10,7 @@ Vue.js is a library for building interactive web interfaces. It provides data-re
 - Plain JavaScript objects as reactive models
 - Component-oriented development style
 
-Note that Vue.js only supports IE9 or above. To check out live examples and docs, visit [vuejs.org](http://vuejs.org).
+Note that Vue.js only supports [ES5-compliant browsers](http://kangax.github.io/compat-table/es5/) (IE8 and below are not supported). To check out live examples and docs, visit [vuejs.org](http://vuejs.org). You can also start with this excellent screencast series on [Laracasts](https://laracasts.com/series/learning-vuejs).
 
 ## Questions
 

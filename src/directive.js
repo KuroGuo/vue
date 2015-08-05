@@ -52,7 +52,10 @@ var p = Directive.prototype
  */
 
 p._bind = function (def) {
-  if (this.name !== 'cloak' && this.el && this.el.removeAttribute) {
+  if (
+    (this.name !== 'cloak' || this.vm._isCompiled) &&
+    this.el && this.el.removeAttribute
+  ) {
     this.el.removeAttribute(config.prefix + this.name)
   }
   if (typeof def === 'function') {
@@ -163,6 +166,7 @@ p._checkParam = function (name) {
   var param = this.el.getAttribute(name)
   if (param !== null) {
     this.el.removeAttribute(name)
+    param = this.vm.$interpolate(param)
   }
   return param
 }

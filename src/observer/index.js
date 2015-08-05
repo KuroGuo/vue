@@ -5,44 +5,6 @@ var arrayMethods = require('./array')
 var arrayKeys = Object.getOwnPropertyNames(arrayMethods)
 require('./object')
 
-var uid = 0
-
-/**
- * Type enums
- */
-
-var ARRAY  = 0
-var OBJECT = 1
-
-/**
- * Augment an target Object or Array by intercepting
- * the prototype chain using __proto__
- *
- * @param {Object|Array} target
- * @param {Object} proto
- */
-
-function protoAugment (target, src) {
-  target.__proto__ = src
-}
-
-/**
- * Augment an target Object or Array by defining
- * hidden properties.
- *
- * @param {Object|Array} target
- * @param {Object} proto
- */
-
-function copyAugment (target, src, keys) {
-  var i = keys.length
-  var key
-  while (i--) {
-    key = keys[i]
-    _.define(target, key, src[key])
-  }
-}
-
 /**
  * Observer class that are attached to each observed
  * object. Once attached, the observer converts target
@@ -50,30 +12,25 @@ function copyAugment (target, src, keys) {
  * collect dependencies and dispatches updates.
  *
  * @param {Array|Object} value
- * @param {Number} type
  * @constructor
  */
 
-function Observer (value, type) {
-  this.id = ++uid
+function Observer (value) {
   this.value = value
-  this.active = true
-  this.deps = []
+  this.dep = new Dep()
   _.define(value, '__ob__', this)
-  if (type === ARRAY) {
+  if (_.isArray(value)) {
     var augment = config.proto && _.hasProto
       ? protoAugment
       : copyAugment
     augment(value, arrayMethods, arrayKeys)
     this.observeArray(value)
-  } else if (type === OBJECT) {
+  } else {
     this.walk(value)
   }
 }
 
-Observer.target = null
-
-var p = Observer.prototype
+// Static methods
 
 /**
  * Attempt to create an observer instance for a value,
@@ -81,26 +38,35 @@ var p = Observer.prototype
  * or the existing observer if the value already has one.
  *
  * @param {*} value
+ * @param {Vue} [vm]
  * @return {Observer|undefined}
  * @static
  */
 
-Observer.create = function (value) {
+Observer.create = function (value, vm) {
+  var ob
   if (
     value &&
     value.hasOwnProperty('__ob__') &&
     value.__ob__ instanceof Observer
   ) {
-    return value.__ob__
-  } else if (_.isArray(value)) {
-    return new Observer(value, ARRAY)
+    ob = value.__ob__
   } else if (
-    _.isPlainObject(value) &&
-    !value._isVue // avoid Vue instance
+    _.isObject(value) &&
+    !Object.isFrozen(value) &&
+    !value._isVue
   ) {
-    return new Observer(value, OBJECT)
+    ob = new Observer(value)
   }
+  if (ob && vm) {
+    ob.addVm(vm)
+  }
+  return ob
 }
+
+// Instance methods
+
+var p = Observer.prototype
 
 /**
  * Walk through each property and convert them into
@@ -161,50 +127,31 @@ p.convert = function (key, val) {
   var ob = this
   var childOb = ob.observe(val)
   var dep = new Dep()
-  if (childOb) {
-    childOb.deps.push(dep)
-  }
   Object.defineProperty(ob.value, key, {
     enumerable: true,
     configurable: true,
     get: function () {
-      // Observer.target is a watcher whose getter is
-      // currently being evaluated.
-      if (ob.active && Observer.target) {
-        Observer.target.addDep(dep)
+      if (Dep.target) {
+        dep.depend()
+        if (childOb) {
+          childOb.dep.depend()
+        }
+        if (_.isArray(val)) {
+          for (var e, i = 0, l = val.length; i < l; i++) {
+            e = val[i]
+            e && e.__ob__ && e.__ob__.dep.depend()
+          }
+        }
       }
       return val
     },
     set: function (newVal) {
       if (newVal === val) return
-      // remove dep from old value
-      var oldChildOb = val && val.__ob__
-      if (oldChildOb) {
-        oldChildOb.deps.$remove(dep)
-      }
       val = newVal
-      // add dep to new value
-      var newChildOb = ob.observe(newVal)
-      if (newChildOb) {
-        newChildOb.deps.push(dep)
-      }
+      childOb = ob.observe(newVal)
       dep.notify()
     }
   })
-}
-
-/**
- * Notify change on all self deps on an observer.
- * This is called when a mutable value mutates. e.g.
- * when an Array's mutating methods are called, or an
- * Object's $add/$delete are called.
- */
-
-p.notify = function () {
-  var deps = this.deps
-  for (var i = 0, l = deps.length; i < l; i++) {
-    deps[i].notify()
-  }
 }
 
 /**
@@ -217,7 +164,7 @@ p.notify = function () {
  */
 
 p.addVm = function (vm) {
-  (this.vms = this.vms || []).push(vm)
+  (this.vms || (this.vms = [])).push(vm)
 }
 
 /**
@@ -229,6 +176,37 @@ p.addVm = function (vm) {
 
 p.removeVm = function (vm) {
   this.vms.$remove(vm)
+}
+
+// helpers
+
+/**
+ * Augment an target Object or Array by intercepting
+ * the prototype chain using __proto__
+ *
+ * @param {Object|Array} target
+ * @param {Object} proto
+ */
+
+function protoAugment (target, src) {
+  target.__proto__ = src
+}
+
+/**
+ * Augment an target Object or Array by defining
+ * hidden properties.
+ *
+ * @param {Object|Array} target
+ * @param {Object} proto
+ */
+
+function copyAugment (target, src, keys) {
+  var i = keys.length
+  var key
+  while (i--) {
+    key = keys[i]
+    _.define(target, key, src[key])
+  }
 }
 
 module.exports = Observer

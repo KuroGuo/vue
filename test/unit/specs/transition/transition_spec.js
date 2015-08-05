@@ -42,7 +42,7 @@ if (_.inBrowser && !_.isIE9) {
     )
 
     describe('Wrapper methods', function () {
-      
+
       var spy, el, target, parent, vm
       beforeEach(function () {
         el = document.createElement('div')
@@ -91,7 +91,7 @@ if (_.inBrowser && !_.isIE9) {
         cb = jasmine.createSpy('transition skip cb')
         vm = new Vue()
       })
-      
+
       it('skip el with no transition data', function () {
         transition.apply(el, 1, op, vm, cb)
         expect(op).toHaveBeenCalled()
@@ -116,7 +116,7 @@ if (_.inBrowser && !_.isIE9) {
         expect(cb).toHaveBeenCalled()
       })
 
-      it('skip when no css transition is available', function () {
+      it('skip when css transition is not supported', function () {
         var e = _.transitionEndEvent
         _.transitionEndEvent = null
         el.__v_trans = new Transition(el, 'test', null, vm)
@@ -190,15 +190,18 @@ if (_.inBrowser && !_.isIE9) {
           expect(cb).toHaveBeenCalled()
           expect(hooks.afterEnter).toHaveBeenCalled()
           expect(el.classList.contains('test-no-trans-enter')).toBe(false)
-          transition.apply(el, -1, op, vm, cb)
-          expect(hooks.beforeLeave).toHaveBeenCalled()
-          expect(hooks.leave).toHaveBeenCalled()
+          // wait until transition.justEntered flag is off
           _.nextTick(function () {
-            expect(op.calls.count()).toBe(2)
-            expect(cb.calls.count()).toBe(2)
-            expect(hooks.afterLeave).toHaveBeenCalled()
-            expect(el.classList.contains('test-no-trans-leave')).toBe(false)
-            done()
+            transition.apply(el, -1, op, vm, cb)
+            expect(hooks.beforeLeave).toHaveBeenCalled()
+            expect(hooks.leave).toHaveBeenCalled()
+            _.nextTick(function () {
+              expect(op.calls.count()).toBe(2)
+              expect(cb.calls.count()).toBe(2)
+              expect(hooks.afterLeave).toHaveBeenCalled()
+              expect(el.classList.contains('test-no-trans-leave')).toBe(false)
+              done()
+            })
           })
         })
       })
@@ -250,6 +253,7 @@ if (_.inBrowser && !_.isIE9) {
             done()
           })
         })
+        return f
       })
 
       it('animation enter', function (done) {
@@ -388,9 +392,8 @@ if (_.inBrowser && !_.isIE9) {
 
     describe('JavaScript only transitions', function () {
 
-      var el, vm, op, cb, hooks, emitter
+      var el, vm, op, cb, hooks
       beforeEach(function () {
-        emitter = {}
         hooks = {}
         el = document.createElement('div')
         document.body.appendChild(el)
@@ -450,7 +453,7 @@ if (_.inBrowser && !_.isIE9) {
           transition.apply(el, -1, op, vm, cb)
           _.nextTick(function () {
             expect(op.calls.count()).toBe(2)
-            expect(cb.calls.count()).toBe(2)  
+            expect(cb.calls.count()).toBe(2)
             done()
           })
         })

@@ -1,11 +1,10 @@
-var Vue = require('../../../../src/vue')
 var filters = require('../../../../src/filters')
 
 describe('Filters', function () {
 
   it('json read', function () {
     var filter = filters.json.read
-    var obj = {a:{b:2}}
+    var obj = {a: {b: 2}}
     expect(filter(obj)).toBe(JSON.stringify(obj, null, 2))
     expect(filter(obj, 4)).toBe(JSON.stringify(obj, null, 4))
     // plain string
@@ -20,7 +19,7 @@ describe('Filters', function () {
     var invalidJSON = '{"a":}'
     expect(filter(invalidJSON)).toBe(invalidJSON)
   })
-  
+
   it('capitalize', function () {
     var filter = filters.capitalize
     var res = filter('fsefsfsef')
@@ -62,7 +61,9 @@ describe('Filters', function () {
     expect(filter(1234)).toBe('$1,234.00')
     expect(filter(1234.45)).toBe('$1,234.45')
     expect(filter(123443434.4343434)).toBe('$123,443,434.43')
-    expect(filter(0.99999)).toBe('$0.99')
+    expect(filter(0.99)).toBe('$0.99')
+    expect(filter(0.99999)).toBe('$1.00')
+    expect(filter(0.76)).toBe('$0.76')
     // sign arg
     expect(filter(2134, '@')).toBe('@2,134.00')
     // falsy, infinity and 0
@@ -72,9 +73,9 @@ describe('Filters', function () {
     expect(filter(undefined)).toBe('')
     expect(filter(Infinity)).toBe('')
     // negative numbers
-    expect(filter(-50)).toBe('-$50.00')
-    expect(filter(-150.43)).toBe('-$150.43')
-    expect(filter(-1500.4343434)).toBe('-$1,500.43')
+    expect(filter(-50)).toBe('$-50.00')
+    expect(filter(-150.43)).toBe('$-150.43')
+    expect(filter(-1500.4343434)).toBe('$-1,500.43')
   })
 
   it('key', function () {
@@ -126,6 +127,10 @@ describe('Filters', function () {
     res = filter(arr, 'yoyo')
     expect(res.length).toBe(1)
     expect(res[0]).toBe(arr[2])
+    // filter by false (#928)
+    res = filter([{a: false}, {b: true}], false)
+    expect(res.length).toBe(1)
+    expect(res[0].a).toBe(false)
   })
 
   it('orderBy', function () {

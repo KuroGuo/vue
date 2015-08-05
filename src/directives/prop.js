@@ -1,75 +1,62 @@
+// NOTE: the prop internal directive is compiled and linked
+// during _initScope(), before the created hook is called.
+// The purpose is to make the initial prop values available
+// inside `created` hooks and `data` functions.
+
 var _ = require('../util')
 var Watcher = require('../watcher')
-var identRE = require('../parsers/path').identRE
+var bindingModes = require('../config')._propBindingModes
 
 module.exports = {
 
   bind: function () {
 
     var child = this.vm
-    var parent = child.$parent
-    var childKey = this.arg
-    var parentKey = this.expression
-
-    if (!identRE.test(childKey)) {
-      _.warn(
-        'Invalid prop key: "' + childKey + '". Prop keys ' +
-        'must be valid identifiers.'
-      )
-    }
-
-    // simple lock to avoid circular updates.
-    // without this it would stabilize too, but this makes
-    // sure it doesn't cause other watchers to re-evaluate.
-    var locked = false
-    var lock = function () {
-      locked = true
-      _.nextTick(unlock)
-    }
-    var unlock = function () {
-      locked = false
-    }
+    var parent = child._context
+    // passed in from compiler directly
+    var prop = this._descriptor
+    var childKey = prop.path
+    var parentKey = prop.parentPath
 
     this.parentWatcher = new Watcher(
       parent,
       parentKey,
       function (val) {
-        if (!locked) {
-          lock()
-          // all props have been initialized already
+        if (_.assertProp(prop, val)) {
           child[childKey] = val
         }
       }
     )
-    
-    // set the child initial value first, before setting
-    // up the child watcher to avoid triggering it
-    // immediately.
-    child.$set(childKey, this.parentWatcher.value)
 
-    // only setup two-way binding if this is not a one-way
-    // binding.
-    if (!this._descriptor.oneWay) {
-      this.childWatcher = new Watcher(
-        child,
-        childKey,
-        function (val) {
-          if (!locked) {
-            lock()
+    // set the child initial value.
+    var value = this.parentWatcher.value
+    if (childKey === '$data') {
+      child._data = value
+    } else {
+      _.initProp(child, prop, value)
+    }
+
+    // setup two-way binding
+    if (prop.mode === bindingModes.TWO_WAY) {
+      // important: defer the child watcher creation until
+      // the created hook (after data observation)
+      var self = this
+      child.$once('hook:created', function () {
+        self.childWatcher = new Watcher(
+          child,
+          childKey,
+          function (val) {
             parent.$set(parentKey, val)
           }
-        }
-      )
+        )
+      })
     }
   },
 
   unbind: function () {
-    if (this.parentWatcher) {
-      this.parentWatcher.teardown()
-    }
+    this.parentWatcher.teardown()
     if (this.childWatcher) {
       this.childWatcher.teardown()
     }
   }
-
 }

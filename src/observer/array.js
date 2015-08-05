@@ -42,7 +42,7 @@ var arrayMethods = Object.create(arrayProto)
     }
     if (inserted) ob.observeArray(inserted)
     // notify change
-    ob.notify()
+    ob.dep.notify()
     return result
   })
 })
@@ -84,7 +84,7 @@ _.define(
       index = _.indexOf(this, index)
     }
     if (index > -1) {
-      this.splice(index, 1)
+      return this.splice(index, 1)
     }
   }
 )

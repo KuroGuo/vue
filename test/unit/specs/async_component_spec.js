@@ -17,7 +17,7 @@ describe('Async components', function () {
   describe('v-component', function () {
 
     it('normal', function (done) {
-      var vm = new Vue({
+      new Vue({
         el: el,
         template: '<test></test>',
         components: {
@@ -42,10 +42,10 @@ describe('Async components', function () {
         el: el,
         template: '<component is="{{view}}"></component>',
         data: {
-          view: 'a'
+          view: 'view-a'
         },
         components: {
-          a: function (resolve) {
+          'view-a': function (resolve) {
             setTimeout(function () {
               resolve({
                 template: 'A'
@@ -53,7 +53,7 @@ describe('Async components', function () {
               step1()
             }, 0)
           },
-          b: function (resolve) {
+          'view-b': function (resolve) {
             setTimeout(function () {
               resolve({
                 template: 'B'
@@ -69,11 +69,11 @@ describe('Async components', function () {
         expect(aCalled).toBe(false)
         aCalled = true
         expect(el.textContent).toBe('A')
-        vm.view = 'b'
+        vm.view = 'view-b'
       }
       function step2 () {
         expect(el.textContent).toBe('B')
-        vm.view = 'a'
+        vm.view = 'view-a'
         _.nextTick(function () {
           expect(el.textContent).toBe('A')
           done()
@@ -86,10 +86,10 @@ describe('Async components', function () {
         el: el,
         template: '<component is="{{view}}"></component>',
         data: {
-          view: 'a'
+          view: 'view-a'
         },
         components: {
-          a: function (resolve) {
+          'view-a': function (resolve) {
             setTimeout(function () {
               resolve({
                 template: 'A'
@@ -97,7 +97,7 @@ describe('Async components', function () {
               step1()
             }, 100)
           },
-          b: function (resolve) {
+          'view-b': function (resolve) {
             setTimeout(function () {
               resolve({
                 template: 'B'
@@ -108,11 +108,11 @@ describe('Async components', function () {
         }
       })
       expect(el.textContent).toBe('')
-      vm.view = 'b'
+      vm.view = 'view-b'
       function step1 () {
         // called after A resolves, but A should have been
         // invalidated so not cotrId should be set
-        expect(vm._directives[0].ctorId).toBe(null)
+        expect(vm._directives[0].componentID).toBe(null)
       }
       function step2 () {
         // B should resolve successfully
@@ -126,7 +126,7 @@ describe('Async components', function () {
         el: el,
         template: '<test></test>',
         data: {
-          view: 'a'
+          view: 'view-a'
         },
         components: {
           test: function (resolve) {
@@ -146,7 +146,7 @@ describe('Async components', function () {
       function next () {
         // called after A resolves, but A should have been
         // invalidated so not cotrId should be set
-        expect(dir.ctorId).toBe(null)
+        expect(dir.componentID).toBe(null)
         done()
       }
     })
@@ -154,7 +154,7 @@ describe('Async components', function () {
     it('avoid duplicate requests', function (done) {
       var factoryCallCount = 0
       var instanceCount = 0
-      var vm = new Vue({
+      new Vue({
         el: el,
         template:
           '<test></test>' +
@@ -184,7 +184,7 @@ describe('Async components', function () {
     })
 
     it('warn reject', function () {
-      var vm = new Vue({
+      new Vue({
         el: el,
         template: '<test></test>',
         components: {
@@ -203,7 +203,7 @@ describe('Async components', function () {
     // - warn for dynamic
 
     it('normal', function (done) {
-      var vm = new Vue({
+      new Vue({
         el: el,
         template: '<test v-repeat="list"></test>',
         data: {
@@ -282,13 +282,13 @@ describe('Async components', function () {
       vm.$destroy()
       function next () {
         expect(el.textContent).toBe('')
-        expect(dir.Ctor).toBe(null)
+        expect(dir.Component).toBe(null)
         done()
       }
     })
 
     it('warn when used with dynamic v-repeat', function () {
-      var vm = new Vue({
+      new Vue({
         el: el,
         template: '<component v-repeat="list" is="{{c}}"></component>',
         data: {

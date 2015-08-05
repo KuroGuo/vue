@@ -14,7 +14,7 @@ if (_.inBrowser) {
       var vm = new Vue({
         el: el,
         data: {
-          items: [{a:1}, {a:2}]
+          items: [{a: 1}, {a: 2}]
         },
         template: '<div v-repeat="items">{{$index}} {{a}}</div>'
       })
@@ -36,9 +36,20 @@ if (_.inBrowser) {
       var vm = new Vue({
         el: el,
         data: {
-          items: [{a:1}, {a:2}]
+          items: [{a: 1}, {a: 2}]
         },
         template: '<div v-repeat="item:items">{{$index}} {{item.a}}</div>'
+      })
+      assertMutations(vm, el, done)
+    })
+
+    it('item in list syntax', function (done) {
+      var vm = new Vue({
+        el: el,
+        data: {
+          items: [{a: 1}, {a: 2}]
+        },
+        template: '<div v-repeat="item in items">{{$index}} {{item.a}}</div>'
       })
       assertMutations(vm, el, done)
     })
@@ -59,8 +70,8 @@ if (_.inBrowser) {
         el: el,
         data: {
           items: {
-            a: {a:1},
-            b: {a:2}
+            a: {a: 1},
+            b: {a: 2}
           }
         },
         template: '<div v-repeat="items">{{$index}} {{$key}} {{a}}</div>'
@@ -87,8 +98,8 @@ if (_.inBrowser) {
         el: el,
         data: {
           items: {
-            a: {a:1},
-            b: {a:2}
+            a: {a: 1},
+            b: {a: 2}
           }
         },
         template: '<div v-repeat="item:items">{{$index}} {{$key}} {{item.a}}</div>'
@@ -114,7 +125,7 @@ if (_.inBrowser) {
       var vm = new Vue({
         el: el,
         data: {
-          items: [[1,1], [2,2], [3,3]]
+          items: [[1, 1], [2, 2], [3, 3]]
         },
         template: '<div v-repeat="items">{{$index}} {{$value}}</div>'
       })
@@ -125,7 +136,7 @@ if (_.inBrowser) {
     })
 
     it('repeating object with filter', function () {
-      var vm = new Vue({
+      new Vue({
         el: el,
         data: {
           items: {
@@ -142,9 +153,26 @@ if (_.inBrowser) {
       var vm = new Vue({
         el: el,
         data: {
-          items: [{a:1}, {a:2}]
+          items: [{a: 1}, {a: 2}]
         },
         template: '<test v-repeat="items"></test>',
+        components: {
+          test: {
+            template: '<div>{{$index}} {{a}}</div>',
+            replace: true
+          }
+        }
+      })
+      assertMutations(vm, el, done)
+    })
+
+    it('v-component', function (done) {
+      var vm = new Vue({
+        el: el,
+        data: {
+          items: [{a: 1}, {a: 2}]
+        },
+        template: '<p v-repeat="items" v-component="test"></p>',
         components: {
           test: {
             template: '<div>{{$index}} {{a}}</div>',
@@ -159,7 +187,7 @@ if (_.inBrowser) {
       var vm = new Vue({
         el: el,
         data: {
-          items: [{a:1}, {a:2}]
+          items: [{a: 1}, {a: 2}]
         },
         template:
           '<test v-repeat="items" inline-template>' +
@@ -194,8 +222,8 @@ if (_.inBrowser) {
         el: el,
         data: {
           items: {
-            a: {a:1},
-            b: {a:2}
+            a: {a: 1},
+            b: {a: 2}
           }
         },
         template: '<test v-repeat="items"></test>',
@@ -210,12 +238,12 @@ if (_.inBrowser) {
     })
 
     it('nested repeats', function () {
-      var vm = new Vue({
+      new Vue({
         el: el,
         data: {
           items: [
-            { items: [{a:1}, {a:2}], a: 1 },
-            { items: [{a:3}, {a:4}], a: 2 }
+            { items: [{a: 1}, {a: 2}], a: 1 },
+            { items: [{a: 3}, {a: 4}], a: 2 }
           ]
         },
         template: '<div v-repeat="items">' +
@@ -228,29 +256,29 @@ if (_.inBrowser) {
       )
     })
 
-    it('nested repeats on object', function(){
-      var vm = new Vue({
+    it('nested repeats on object', function () {
+      new Vue({
         el: el,
         data: {
           listHash: {
-            listA: [{a: 1},{a: 2}],
-            listB: [{a: 1},{a: 2}]
+            listA: [{a: 1}, {a: 2}],
+            listB: [{a: 1}, {a: 2}]
           }
         },
         template: '<div v-repeat="listHash">{{$key}}' +
             '<p v-repeat="$value">{{a}}</p>' +
             '</div>'
       })
-      function output(key){
+      function output (key) {
         var key1 = key === 'listA' ? 'listB' : 'listA'
-        return  '<div>'+ key +'<p>1</p><p>2</p></div>' +
-                '<div>'+ key1 +'<p>1</p><p>2</p></div>'
+        return '<div>' + key + '<p>1</p><p>2</p></div>' +
+               '<div>' + key1 + '<p>1</p><p>2</p></div>'
       }
       expect(el.innerHTML === output('listA') || el.innerHTML === output('listB')).toBeTruthy()
     })
 
     it('dynamic component type based on instance data', function () {
-      var vm = new Vue({
+      new Vue({
         el: el,
         template: '<component v-repeat="list" is="view-{{type}}"></component>',
         data: {
@@ -274,7 +302,7 @@ if (_.inBrowser) {
       })
       expect(el.innerHTML).toBe('<component>AAA</component><component>BBB</component><component>CCC</component>')
       // #458 meta properties
-      vm = new Vue({
+      new Vue({
         el: el,
         template: '<component v-repeat="list" is="view-{{$value}}"></component>',
         data: {
@@ -311,7 +339,15 @@ if (_.inBrowser) {
       vm.list.reverse()
       _.nextTick(function () {
         assertMarkup()
-        done()
+        vm.list.splice(1, 1)
+        _.nextTick(function () {
+          assertMarkup()
+          vm.list.splice(1, 0, { a: 2 })
+          _.nextTick(function () {
+            assertMarkup()
+            done()
+          })
+        })
       })
 
       function assertMarkup () {
@@ -322,34 +358,45 @@ if (_.inBrowser) {
       }
     })
 
-    it('component + parent directive + transclusion', function (done) {
+    it('block repeat with component', function (done) {
       var vm = new Vue({
         el: el,
-        template: '<test v-repeat="list" v-class="cls">{{msg}}</test>',
+        template: '<template v-repeat="list"><test a="{{a}}"></test></template>',
         data: {
-          cls: 'parent',
-          msg: 'hi',
-          list: [{a:1},{a:2},{a:3}]
+          list: [
+            { a: 1 },
+            { a: 2 },
+            { a: 3 }
+          ]
         },
         components: {
           test: {
-            replace: true,
-            template: '<div class="child">{{a}} <content></content></div>'
+            props: ['a'],
+            template: '{{a}}'
           }
         }
       })
-      var markup = vm.list.map(function (item) {
-        return '<div class="child parent">' + item.a + ' hi</div>'
-      }).join('')
-      expect(el.innerHTML).toBe(markup)
-      vm.msg = 'ho'
-      markup = vm.list.map(function (item) {
-        return '<div class="child parent">' + item.a + ' ho</div>'
-      }).join('')
+      assertMarkup()
+      vm.list.reverse()
       _.nextTick(function () {
-        expect(el.innerHTML).toBe(markup)
-        done()
+        assertMarkup()
+        vm.list.splice(1, 1)
+        _.nextTick(function () {
+          assertMarkup()
+          vm.list.splice(1, 0, { a: 2 })
+          _.nextTick(function () {
+            assertMarkup()
+            done()
+          })
+        })
       })
+
+      function assertMarkup () {
+        var markup = vm.list.map(function (item) {
+          return '<test>' + item.a + '</test>'
+        }).join('')
+        expect(el.innerHTML).toBe(markup)
+      }
     })
 
     it('array filters', function (done) {
@@ -436,7 +483,7 @@ if (_.inBrowser) {
     })
 
     it('orderBy supporting $value for primitive arrays', function () {
-      var vm = new Vue({
+      new Vue({
         el: el,
         template: '<div v-repeat="list | orderBy \'$value\'">{{$value}}</div>',
         data: {
@@ -451,7 +498,7 @@ if (_.inBrowser) {
       assertTrackBy('<test v-repeat="list" track-by="id"></test>', '{{msg}}', function () {
         assertTrackBy('<test v-repeat="item:list" track-by="id"></test>', '{{item.msg}}', done)
       })
-      
+
       function assertTrackBy (template, componentTemplate, next) {
         var vm = new Vue({
           el: el,
@@ -470,7 +517,7 @@ if (_.inBrowser) {
           }
         })
         assertMarkup()
-        var oldVms = vm._children.slice()
+        var oldVms = vm.$children.slice()
         // swap the data with different objects, but with
         // the same ID!
         vm.list = [
@@ -482,7 +529,7 @@ if (_.inBrowser) {
           // should reuse old vms!
           var i = 2
           while (i--) {
-            expect(vm._children[i]).toBe(oldVms[i])
+            expect(vm.$children[i]).toBe(oldVms[i])
           }
           next()
         })
@@ -500,7 +547,7 @@ if (_.inBrowser) {
       var vm = new Vue({
         el: el,
         data: {
-          items: [{a:1}, {a:2}]
+          items: [{a: 1}, {a: 2}]
         },
         template: '<div v-repeat="items" track-by="$index">{{$index}} {{a}}</div>'
       })
@@ -508,7 +555,7 @@ if (_.inBrowser) {
       assertMarkup()
       var el1 = el.children[0]
       var el2 = el.children[1]
-      vm.items = [{a:3}, {a:2}, {a:1}]
+      vm.items = [{a: 3}, {a: 2}, {a: 1}]
       _.nextTick(function () {
         assertMarkup()
         // should mutate the DOM in-place
@@ -526,35 +573,29 @@ if (_.inBrowser) {
 
     it('warn duplicate objects', function () {
       var obj = {}
-      var vm = new Vue({
+      new Vue({
         el: el,
-        template: '<div v-repeat="items" v-component="test"></div>',
+        template: '<div v-repeat="items"></div>',
         data: {
           items: [obj, obj]
-        },
-        components: {
-          test: {}
         }
       })
       expect(hasWarned(_, 'Duplicate objects')).toBe(true)
     })
 
     it('warn duplicate trackby id', function () {
-      var vm = new Vue({
+      new Vue({
         el: el,
-        template: '<div v-repeat="items" v-component="test" track-by="id"></div>',
+        template: '<div v-repeat="items" track-by="id"></div>',
         data: {
-          items: [{id:1}, {id:1}]
-        },
-        components: {
-          test: {}
+          items: [{id: 1}, {id: 1}]
         }
       })
       expect(hasWarned(_, 'Duplicate track-by key')).toBe(true)
     })
 
     it('warn v-if', function () {
-      var vm = new Vue({
+      new Vue({
         el: el,
         template: '<div v-repeat="items" v-if="aaa"></div>',
         data: {
@@ -565,7 +606,7 @@ if (_.inBrowser) {
     })
 
     it('repeat number', function () {
-      var vm = new Vue({
+      new Vue({
         el: el,
         template: '<div v-repeat="3">{{$index}} {{$value}}</div>'
       })
@@ -573,7 +614,7 @@ if (_.inBrowser) {
     })
 
     it('repeat string', function () {
-      var vm = new Vue({
+      new Vue({
         el: el,
         template: '<div v-repeat="\'vue\'">{{$index}} {{$value}}</div>'
       })
@@ -583,16 +624,13 @@ if (_.inBrowser) {
     it('teardown', function () {
       var vm = new Vue({
         el: el,
-        template: '<div v-repeat="items" v-component="test"></div>',
+        template: '<div v-repeat="items"></div>',
         data: {
-          items: [{a:1}, {a:2}]
-        },
-        components: {
-          test: {}
+          items: [{a: 1}, {a: 2}]
         }
       })
       vm._directives[0].unbind()
-      expect(vm._children.length).toBe(0)
+      expect(vm.$children.length).toBe(0)
     })
 
     it('with transition', function (done) {
@@ -601,7 +639,7 @@ if (_.inBrowser) {
         el: el,
         template: '<div v-repeat="items" v-transition="test">{{a}}</div>',
         data: {
-          items: [{a:1}, {a:2}, {a:3}]
+          items: [{a: 1}, {a: 2}, {a: 3}]
         },
         transitions: {
           test: {
@@ -611,7 +649,7 @@ if (_.inBrowser) {
           }
         }
       })
-      vm.items.splice(1, 1, {a:4})
+      vm.items.splice(1, 1, {a: 4})
       setTimeout(function () {
         expect(el.innerHTML).toBe(
           '<div class="test-transition">1</div>' +
@@ -631,19 +669,23 @@ if (_.inBrowser) {
           '<div v-repeat="obj">{{$value}}</div>' +
           '<div v-repeat="val:vals">{{val}}</div>',
         data: {
-          items: ['a', 'b'],
+          items: ['a', true],
           obj: { foo: 'a', bar: 'b' },
-          vals: [1, 2]
+          vals: [1, null]
         }
       })
-      vm._children[0].$value = 'c'
-      var key = vm._children[2].$key
-      vm._children[2].$value = 'd'
-      vm._children[4].val = 3
+      vm.$children[0].$value = 'c'
+      vm.$children[1].$value = 'd'
+      var key = vm.$children[2].$key
+      vm.$children[2].$value = 'e'
+      vm.$children[4].val = 3
+      vm.$children[5].val = 4
       _.nextTick(function () {
         expect(vm.items[0]).toBe('c')
-        expect(vm.obj[key]).toBe('d')
+        expect(vm.items[1]).toBe('d')
+        expect(vm.obj[key]).toBe('e')
         expect(vm.vals[0]).toBe(3)
+        expect(vm.vals[1]).toBe(4)
         done()
       })
     })
@@ -656,7 +698,7 @@ if (_.inBrowser) {
           items: ['a', 'b']
         }
       })
-      vm._children[0].$value = 'c'
+      vm.$children[0].$value = 'c'
       _.nextTick(function () {
         expect(hasWarned(_, 'use an Array of Objects instead')).toBe(true)
         done()
@@ -668,7 +710,7 @@ if (_.inBrowser) {
         assertTrackBy('<div v-repeat="list" track-by="id">{{msg}}<div v-repeat="list" track-by="id">{{msg}}</div></div>', done)
       })
 
-      function assertTrackBy(template, next) {
+      function assertTrackBy (template, next) {
         var vm = new Vue({
           el: el,
           data: {
@@ -684,7 +726,7 @@ if (_.inBrowser) {
         })
         assertMarkup()
 
-        var oldVms = vm._children.slice()
+        var oldVms = vm.$children.slice()
 
         vm.list = [
           { id: 1, msg: 'wa', list: [
@@ -699,9 +741,9 @@ if (_.inBrowser) {
           // should reuse old vms!
           var i = 2
           while (i--) {
-            expect(vm._children[i]).toBe(oldVms[i])
+            expect(vm.$children[i]).toBe(oldVms[i])
           }
-          expect(vm._children[0]._children[0]).toBe(oldVms[0]._children[0])
+          expect(vm.$children[0].$children[0]).toBe(oldVms[0].$children[0])
           next()
         })
 
@@ -755,9 +797,9 @@ if (_.inBrowser) {
 
 function go (fn, cb) {
   return {
-    stack: [{fn:fn, cb:cb}],
+    stack: [{fn: fn, cb: cb}],
     then: function (fn, cb) {
-      this.stack.push({fn:fn, cb:cb})
+      this.stack.push({fn: fn, cb: cb})
       return this
     },
     run: function (done) {
@@ -783,13 +825,13 @@ function assertMutations (vm, el, done) {
   var poppedItem
   go(
     function () {
-      vm.items.push({a:3})
+      vm.items.push({a: 3})
     },
     assertMarkup
   )
   .then(
     function () {
-      vm.items.shift()    
+      vm.items.shift()
     },
     assertMarkup
   )
@@ -821,14 +863,14 @@ function assertMutations (vm, el, done) {
   )
   .then(
     function () {
-      vm.items.splice(1, 1, {a:5})
+      vm.items.splice(1, 1, {a: 5})
     },
     assertMarkup
   )
   // test swapping the array
   .then(
     function () {
-      vm.items = [{a:0}, {a:1}, {a:2}]
+      vm.items = [{a: 0}, {a: 1}, {a: 2}]
     },
     assertMarkup
   )
@@ -860,7 +902,7 @@ function assertPrimitiveMutations (vm, el, done) {
   )
   .then(
     function () {
-      vm.items.shift()    
+      vm.items.shift()
     },
     assertMarkup
   )
@@ -922,22 +964,22 @@ function assertObjectMutations (vm, el, done) {
   assertMarkup()
   go(
     function () {
-      vm.items.a = {a:3}
+      vm.items.a = {a: 3}
     },
     assertMarkup
   )
   .then(
     function () {
       vm.items = {
-        c: {a:1},
-        d: {a:2}
+        c: {a: 1},
+        d: {a: 2}
       }
     },
     assertMarkup
   )
   .then(
     function () {
-      vm.items.$add('a', {a:3})
+      vm.items.$add('a', {a: 3})
     },
     assertMarkup
   )
